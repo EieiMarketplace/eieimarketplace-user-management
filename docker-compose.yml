@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:15
     container_name: postgres
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -16,6 +17,7 @@ services:
   eieimarketplace-user-management:
     build: .
     container_name: eieimarketplace-user-management
+    restart: always
     depends_on:
       - postgres
     environment:
