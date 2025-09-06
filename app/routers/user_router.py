@@ -13,8 +13,8 @@ def get_db():
 
 @router.post("/register", response_model=schemas.UserResponse)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    if crud.get_user_by_email(db, user.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
+    if crud.get_user_by_email(db, user.email) or crud.get_user_by_username(db, user.username):
+        raise HTTPException(status_code=400, detail="Email or username already registered")
     new_user = crud.create_user(
         db, user.email, user.username, user.password, user.phone_number, user.role
     )
@@ -27,11 +27,11 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     )
 
 @router.post("/login", response_model=schemas.Token)
-def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = crud.get_user_by_email(db, email)
+def login(username: str, password: str, db: Session = Depends(get_db)):
+    user = crud.get_user_by_username(db, username)
     if not user or not auth.verify_password(password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = auth.create_access_token({"sub": user.email})
+    token = auth.create_access_token({"sub": user.username})
     return {"access_token": token, "token_type": "bearer"}
 
 @router.get("/users", response_model=list[schemas.UserResponse])
