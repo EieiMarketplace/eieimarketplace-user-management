@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from .database import Base
 
 class Role(Base):
@@ -13,9 +14,16 @@ class User(Base):
     __tablename__ = "user_table"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    username = Column(String, unique=True, index=True)
+    first_name = Column(String)
+    last_name = Column(String)
     password = Column(String)
     phone_number = Column(String)
     role_id = Column(Integer, ForeignKey("role_table.id"))
 
     role = relationship("Role", back_populates="users")
+
+class BlacklistedToken(Base):
+    __tablename__ = "blacklisted_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, index=True)
+    blacklisted_at = Column(DateTime, default=datetime.utcnow)

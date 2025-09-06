@@ -4,22 +4,19 @@ from . import models, auth
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
-def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
-
 def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 def get_all_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
-def create_user(db: Session, email, username, password, phone_number, role_name):
+def create_user(db: Session, email, first_name, last_name, password, phone_number, role_name):
     role = db.query(models.Role).filter(models.Role.name == role_name).first()
     if not role:
         raise ValueError("Invalid role")
     hashed_pw = auth.hash_password(password)
     user = models.User(
-        email=email, username=username,
+        email=email, first_name=first_name, last_name=last_name,
         password=hashed_pw, phone_number=phone_number,
         role_id=role.id
     )
@@ -27,3 +24,12 @@ def create_user(db: Session, email, username, password, phone_number, role_name)
     db.commit()
     db.refresh(user)
     return user
+
+def blacklist_token(db: Session, token: str):
+    blacklisted_token = models.BlacklistedToken(token=token)
+    db.add(blacklisted_token)
+    db.commit()
+    return blacklisted_token
+
+def is_token_blacklisted(db: Session, token: str):
+    return db.query(models.BlacklistedToken).filter(models.BlacklistedToken.token == token).first() is not None
