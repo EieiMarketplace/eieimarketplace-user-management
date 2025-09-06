@@ -7,3 +7,5 @@ passlib[bcrypt]
 python-multipart
 pydantic[email]
 PyJWT
+pytest
+httpx
