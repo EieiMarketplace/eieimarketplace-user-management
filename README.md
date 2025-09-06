@@ -16,6 +16,11 @@ docker-compose up --build
 http://127.0.0.1:7001/docs
 ```
 
+### Unit Testing
+```
+python -m pytest -v
+```
+
 ## Repo Structure 
 ```
 eieimarketplace-user-management/
@@ -28,6 +33,9 @@ eieimarketplace-user-management/
 │   ├── auth.py              # JWT, password hashing, login/logout
 │   └── routers/
 │       └── user_router.py   # routes เกี่ยวกับ user (register, login, logout)
+│── tests/
+│   ├── conftest.py          # ให้ pytest รู้จัก TestClient และใช้ DB memory (sqlite) แทน
+│   └── test_users.py        # ทดสอบ register, login, logout
 │
 │── Dockerfile               # สร้าง image ของ FastAPI app
 │── docker-compose.yml       # รวม FastAPI + PostgreSQL
