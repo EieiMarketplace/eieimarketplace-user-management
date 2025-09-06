@@ -17,6 +17,7 @@ http://127.0.0.1:7001/docs
 ```
 
 ## Repo Structure 
+```
 eieimarketplace-user-management/
 │── app/
 │   ├── main.py              # entrypoint ของ FastAPI
@@ -32,3 +33,4 @@ eieimarketplace-user-management/
 │── docker-compose.yml       # รวม FastAPI + PostgreSQL
 │── requirements.txt         # dependencies
 │── README.md                # วิธีรันและอธิบายไฟล์
+```
