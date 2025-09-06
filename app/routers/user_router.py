@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from fastapi.security import HTTPAuthorizationCredentials
 from .. import database, schemas, crud, auth, models
 
 router = APIRouter()
@@ -16,12 +17,13 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if crud.get_user_by_email(db, user.email):
         raise HTTPException(status_code=400, detail="Email already registered")
     new_user = crud.create_user(
-        db, user.email, user.username, user.password, user.phone_number, user.role
+        db, user.email, user.first_name, user.last_name, user.password, user.phone_number, user.role
     )
     return schemas.UserResponse(
         id=new_user.id,
         email=new_user.email,
-        username=new_user.username,
+        first_name=new_user.first_name,
+        last_name=new_user.last_name,
         phone_number=new_user.phone_number,
         role=new_user.role.name
     )
@@ -34,6 +36,39 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
     token = auth.create_access_token({"sub": user.email})
     return {"access_token": token, "token_type": "bearer"}
 
+@router.get("/users", response_model=list[schemas.UserResponse])
+def get_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    users = crud.get_all_users(db, skip=skip, limit=limit)
+    return [
+        schemas.UserResponse(
+            id=user.id,
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            phone_number=user.phone_number,
+            role=user.role.name
+        ) for user in users
+    ]
+
+@router.get("/users/{user_id}", response_model=schemas.UserResponse)
+def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
+    user = crud.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return schemas.UserResponse(
+        id=user.id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        phone_number=user.phone_number,
+        role=user.role.name
+    )
+
 @router.post("/logout")
-def logout():
-    return {"message": "Logged out (client should discard token)"}
+def logout(credentials: HTTPAuthorizationCredentials = Depends(auth.security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    
+    # Add token to blacklist
+    crud.blacklist_token(db, token)
+    
+    return {"message": "Successfully logged out"}
