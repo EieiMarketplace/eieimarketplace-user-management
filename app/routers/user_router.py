@@ -34,6 +34,32 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
     token = auth.create_access_token({"sub": user.email})
     return {"access_token": token, "token_type": "bearer"}
 
+@router.get("/users", response_model=list[schemas.UserResponse])
+def get_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    users = crud.get_all_users(db, skip=skip, limit=limit)
+    return [
+        schemas.UserResponse(
+            id=user.id,
+            email=user.email,
+            username=user.username,
+            phone_number=user.phone_number,
+            role=user.role.name
+        ) for user in users
+    ]
+
+@router.get("/users/{user_id}", response_model=schemas.UserResponse)
+def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
+    user = crud.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return schemas.UserResponse(
+        id=user.id,
+        email=user.email,
+        username=user.username,
+        phone_number=user.phone_number,
+        role=user.role.name
+    )
+
 @router.post("/logout")
 def logout():
     return {"message": "Logged out (client should discard token)"}
