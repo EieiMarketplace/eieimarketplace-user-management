@@ -29,9 +29,9 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     )
 
 @router.post("/login", response_model=schemas.Token)
-def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = crud.get_user_by_email(db, email)
-    if not user or not auth.verify_password(password, user.password):
+def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
+    user = crud.get_user_by_email(db, login_data.email)
+    if not user or not auth.verify_password(login_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = auth.create_access_token({"sub": user.email})
     return {"access_token": token, "token_type": "bearer"}
