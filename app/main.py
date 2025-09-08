@@ -12,10 +12,10 @@ list = ["http://localhost:5000",
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list,       
+    allow_origins=["http://localhost:3000", "http://localhost:5000", "http://localhost:8000"],       
     allow_credentials=True,
-    allow_methods=["*"],          # GET, POST, PUT, DELETE, OPTIONS
-    allow_headers=["*"],          # Authorization, Content-Type, etc.
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],          
+    allow_headers=["*"],          
 )
 # init default roles
 from sqlalchemy.orm import Session
