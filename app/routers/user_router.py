@@ -28,13 +28,22 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         role=new_user.role.name
     )
 
-@router.post("/login", response_model=schemas.Token)
+@router.post("/login", response_model=schemas.LoginResponse)
 def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, login_data.email)
     if not user or not auth.verify_password(login_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = auth.create_access_token({"sub": user.email})
-    return {"access_token": token, "token_type": "bearer"}
+    
+    # Get role name from relationship
+    role_name = user.role.name if user.role else "unknown"
+    
+    return {
+        "access_token": token,
+        "email": user.email,
+        "id": user.id,
+        "role": role_name
+    }
 
 @router.get("/users", response_model=list[schemas.UserResponse])
 def get_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
