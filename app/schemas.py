@@ -62,3 +62,13 @@ class LoginRequest(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    email: str
+    id: int
+    role: str
+
+# class LoginResponse(BaseModel):
+#     status: int
+#     data: LoginData

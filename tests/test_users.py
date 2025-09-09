@@ -52,7 +52,10 @@ def test_login_success(test_client):
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
-    assert data["token_type"] == "bearer"
+    assert data["email"] == "charlie@example.com"
+    #assert data["id"] == 1
+    assert "id" in data
+    assert data["role"] == "vendor"
 
 def test_login_wrong_password(test_client):
     test_client.post("/users/register", json={
