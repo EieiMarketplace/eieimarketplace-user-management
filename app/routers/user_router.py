@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.security import HTTPAuthorizationCredentials
 from .. import database, schemas, crud, auth
-
+from fastapi import Depends, HTTPException, status
 router = APIRouter()
 
 def get_db():
@@ -31,7 +31,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.LoginResponse)
 def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, login_data.email)
-    if not user or not auth.verify_password(login_data.password, user.password):
+    if not user or not auth.verify_password(login_data.password, user.password, user.salt):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Get role name from relationship
@@ -76,6 +76,7 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
 #         role=user.role.name
 #     )
 
+# Get current user info
 @router.get("/info", response_model=schemas.UserResponse)
 def get_user_info(credentials: HTTPAuthorizationCredentials = Depends(auth.security), db: Session = Depends(get_db)):
     """Get current user info based on the provided JWT token."""
@@ -106,6 +107,84 @@ def get_user_info(credentials: HTTPAuthorizationCredentials = Depends(auth.secur
         phone_number=user.phone_number,
         role=user.role.name
     )
+
+# Edit current user info
+@router.put("/info", response_model=schemas.UserResponse)
+def edit_user_info(
+    update_data: schemas.EditUserRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(auth.security), 
+    db: Session = Depends(get_db)
+):
+    """Edit current user info based on the provided JWT token."""
+    token = credentials.credentials
+    
+    # Check if token is blacklisted
+    if crud.is_token_blacklisted(db, token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    uuid = auth.verify_token(token, db)
+    user = crud.get_user_by_uuid(db, uuid)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        # Update user info
+        updated_user = crud.edit_user(
+            db, uuid,
+            email=update_data.email,
+            first_name=update_data.first_name,
+            last_name=update_data.last_name,
+            phone_number=update_data.phone_number
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return schemas.UserResponse(
+        id=updated_user.uuid,
+        email=updated_user.email,
+        first_name=updated_user.first_name,
+        last_name=updated_user.last_name,
+        phone_number=updated_user.phone_number,
+        role=updated_user.role.name
+    )
+
+@router.put("/password")
+def change_password(
+    password_data: schemas.ChangePasswordRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(auth.security), 
+    db: Session = Depends(get_db)
+):
+    """Change current user's password based on the provided JWT token."""
+    token = credentials.credentials
+    
+    # Check if token is blacklisted
+    if crud.is_token_blacklisted(db, token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+
+    uuid = auth.verify_token(token, db)
+    user = crud.get_user_by_uuid(db, uuid)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    crud.edit_password(db, uuid, password_data.new_password)
+
+    return {"message": "Password changed successfully"}
 
 
 @router.post("/verify", response_model=schemas.VerifyResponse)

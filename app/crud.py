@@ -24,12 +24,16 @@ def create_user(db: Session, email, first_name, last_name, password, phone_numbe
     role = db.query(models.Role).filter(models.Role.name == role_name).first()
     if not role:
         raise ValueError("Invalid role")
-    hashed_pw = auth.hash_password(password)
+    salt = auth.generate_salt()
+    hashed_pw = auth.hash_password(password, salt)
+
     user = models.User(
         email=email, first_name=first_name, last_name=last_name,
         password=hashed_pw, phone_number=phone_number,
-        role_id=role.id, uuid=auth.generate_uuid()
+        role_id=role.id, uuid=auth.generate_uuid(),
+        salt=salt
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -44,4 +48,31 @@ def blacklist_token(db: Session, token: str):
 def is_token_blacklisted(db: Session, token: str):
     return db.query(models.BlacklistedToken).filter(models.BlacklistedToken.token == token).first() is not None
 
+def edit_user(db: Session, user_uuid: str, email: str = None, first_name: str = None, last_name: str = None, password: str = None, phone_number: str = None):
+    user = get_user_by_uuid(db, user_uuid)
+    if not user:
+        raise ValueError("User not found")
+    if email:
+        if email != user.email and get_user_by_email(db, email):
+            raise ValueError("Email already in use")
+        user.email = email
+    if first_name:
+        user.first_name = first_name
+    if last_name:
+        user.last_name = last_name
+    if phone_number:
+        user.phone_number = phone_number
+    db.commit()
+    db.refresh(user)
+    return user
 
+def edit_password(db: Session, user_uuid: str, new_password: str):
+    user = get_user_by_uuid(db, user_uuid)
+    if not user:
+        raise ValueError("User not found")
+    new_salt = auth.generate_salt()
+    user.password = auth.hash_password(new_password, new_salt)
+    user.salt = new_salt
+    db.commit()
+    db.refresh(user)
+    return user

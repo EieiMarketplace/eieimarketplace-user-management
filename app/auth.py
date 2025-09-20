@@ -21,11 +21,15 @@ def get_db():
     finally:
         db.close()
 
-def hash_password(password: str):
-    return pwd_context.hash(password)
+def hash_password(password: str, salt: str):
+    return pwd_context.hash(password + salt)
 
-def verify_password(plain, hashed):
-    return pwd_context.verify(plain, hashed)
+def generate_salt():
+    # randomly generate a salt value 32
+    return str(uuid.uuid4())
+
+def verify_password(plain, hashed, salt):
+    return pwd_context.verify(plain + salt, hashed)
 
 def generate_uuid():
     return str(uuid.uuid4())
