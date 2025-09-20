@@ -46,26 +46,58 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
         "role": role_name
     }
 
-@router.get("/users", response_model=list[schemas.UserResponse])
-def get_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = crud.get_all_users(db, skip=skip, limit=limit)
-    return [
-        schemas.UserResponse(
-            id=user.uuid,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            phone_number=user.phone_number,
-            role=user.role.name
-        ) for user in users
-    ]
 
-#TODO change user_id to uuid
-@router.get("/users/{user_id}", response_model=schemas.UserResponse)
-def get_user_by_uuid(user_id: str, db: Session = Depends(get_db)):
-    user = crud.get_user_by_uuid(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+# @router.get("/users", response_model=list[schemas.UserResponse])
+# def get_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+#     users = crud.get_all_users(db, skip=skip, limit=limit)
+#     return [
+#         schemas.UserResponse(
+#             id=user.uuid,
+#             email=user.email,
+#             first_name=user.first_name,
+#             last_name=user.last_name,
+#             phone_number=user.phone_number,
+#             role=user.role.name
+#         ) for user in users
+#     ]
+
+# #TODO change user_id to uuid
+# @router.get("/users/{user_id}", response_model=schemas.UserResponse)
+# def get_user_by_uuid(user_id: str, db: Session = Depends(get_db)):
+#     user = crud.get_user_by_uuid(db, user_id)
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+#     return schemas.UserResponse(
+#         id=user.uuid,
+#         email=user.email,
+#         first_name=user.first_name,
+#         last_name=user.last_name,
+#         phone_number=user.phone_number,
+#         role=user.role.name
+#     )
+
+@router.get("/info", response_model=schemas.UserResponse)
+def get_user_info(credentials: HTTPAuthorizationCredentials = Depends(auth.security), db: Session = Depends(get_db)):
+    """Get current user info based on the provided JWT token."""
+    token = credentials.credentials
+    
+    # Check if token is blacklisted
+    if crud.is_token_blacklisted(db, token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    uuid = auth.verify_token(token, db)
+    user = crud.get_user_by_uuid(db, uuid)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     return schemas.UserResponse(
         id=user.uuid,
         email=user.email,
@@ -74,6 +106,7 @@ def get_user_by_uuid(user_id: str, db: Session = Depends(get_db)):
         phone_number=user.phone_number,
         role=user.role.name
     )
+
 
 @router.post("/verify", response_model=schemas.VerifyResponse)
 def verify_user(
