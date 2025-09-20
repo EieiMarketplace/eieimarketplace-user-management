@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.security import HTTPAuthorizationCredentials
-from .. import database, schemas, crud, auth, models
+from .. import database, schemas, crud, auth
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         db, user.email, user.first_name, user.last_name, user.password, user.phone_number, user.role
     )
     return schemas.UserResponse(
-        id=new_user.id,
+        id=new_user.uuid,
         email=new_user.email,
         first_name=new_user.first_name,
         last_name=new_user.last_name,
@@ -33,15 +33,14 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, login_data.email)
     if not user or not auth.verify_password(login_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = auth.create_access_token({"sub": user.email})
+    token = auth.create_access_token({"sub": user.uuid})
     
     # Get role name from relationship
     role_name = user.role.name if user.role else "unknown"
     
     return {
         "access_token": token,
-        "email": user.email,
-        "id": user.id,
+        "id": user.uuid,
         "role": role_name
     }
 
@@ -50,7 +49,7 @@ def get_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
     users = crud.get_all_users(db, skip=skip, limit=limit)
     return [
         schemas.UserResponse(
-            id=user.id,
+            id=user.uuid,
             email=user.email,
             first_name=user.first_name,
             last_name=user.last_name,
@@ -65,7 +64,7 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return schemas.UserResponse(
-        id=user.id,
+        id=user.uuid,
         email=user.email,
         first_name=user.first_name,
         last_name=user.last_name,

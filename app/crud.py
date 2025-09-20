@@ -7,6 +7,9 @@ def get_user_by_email(db: Session, email: str):
 def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
+def get_user_by_uuid(db: Session, user_uuid: str):
+    return db.query(models.User).filter(models.User.uuid == user_uuid).first()
+
 def get_all_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
@@ -18,7 +21,7 @@ def create_user(db: Session, email, first_name, last_name, password, phone_numbe
     user = models.User(
         email=email, first_name=first_name, last_name=last_name,
         password=hashed_pw, phone_number=phone_number,
-        role_id=role.id
+        role_id=role.id, uuid=auth.generate_uuid()
     )
     db.add(user)
     db.commit()
