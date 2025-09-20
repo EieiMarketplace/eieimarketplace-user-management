@@ -33,10 +33,12 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, login_data.email)
     if not user or not auth.verify_password(login_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = auth.create_access_token({"sub": user.uuid})
     
     # Get role name from relationship
     role_name = user.role.name if user.role else "unknown"
+    
+    # Include role in token payload for authorization
+    token = auth.create_access_token({"sub": user.uuid, "role": role_name})
     
     return {
         "access_token": token,
@@ -58,9 +60,10 @@ def get_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
         ) for user in users
     ]
 
+#TODO change user_id to uuid
 @router.get("/users/{user_id}", response_model=schemas.UserResponse)
-def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
-    user = crud.get_user_by_id(db, user_id)
+def get_user_by_uuid(user_id: str, db: Session = Depends(get_db)):
+    user = crud.get_user_by_uuid(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return schemas.UserResponse(
@@ -70,6 +73,25 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
         last_name=user.last_name,
         phone_number=user.phone_number,
         role=user.role.name
+    )
+
+@router.post("/verify", response_model=schemas.VerifyResponse)
+def verify_user(
+    verify_request: schemas.VerifyRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(auth.security), 
+    db: Session = Depends(get_db)
+):
+    """Verify if a user has the required role authorization."""
+    token = credentials.credentials
+    uuid = verify_request.uuid
+    required_role = verify_request.required_role
+    
+    # Use the is_authorized function which handles all the verification logic
+    is_authorized = auth.is_authorized(db, token, required_role, uuid)
+    
+    return schemas.VerifyResponse(
+        uuid=uuid,
+        verify=is_authorized
     )
 
 @router.post("/logout")

@@ -7,6 +7,13 @@ def get_user_by_email(db: Session, email: str):
 def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
+def get_role_by_uuid(db: Session, user_uuid: str):
+    """Get user role name by joining User and Role tables using user UUID."""
+    user_with_role = db.query(models.User).options(joinedload(models.User.role)).filter(models.User.uuid == user_uuid).first()
+    if user_with_role and user_with_role.role:
+        return user_with_role.role.name
+    return None
+
 def get_user_by_uuid(db: Session, user_uuid: str):
     return db.query(models.User).filter(models.User.uuid == user_uuid).first()
 
@@ -36,3 +43,5 @@ def blacklist_token(db: Session, token: str):
 
 def is_token_blacklisted(db: Session, token: str):
     return db.query(models.BlacklistedToken).filter(models.BlacklistedToken.token == token).first() is not None
+
+

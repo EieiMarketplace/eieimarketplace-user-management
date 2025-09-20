@@ -20,7 +20,6 @@ class User(Base):
     password = Column(String)
     phone_number = Column(String)
     role_id = Column(Integer, ForeignKey("role_table.id"))
-
     role = relationship("Role", back_populates="users")
 
 class BlacklistedToken(Base):

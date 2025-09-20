@@ -53,6 +53,26 @@ def verify_token(token: str, db: Session):
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+def verify_authorization(token: str, db: Session):
+    """Extract UUID and role from JWT token."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        uuid: str = payload.get("sub")
+        role: str = payload.get("role")        
+        if uuid is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return uuid, role
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     token = credentials.credentials
@@ -74,3 +94,32 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+# Authorization functions
+def is_authorized(db: Session, token: str, required_role: str, uuid: str = None):
+    """
+    Check if the token holder is authorized with the required role.
+    
+    Args:
+        db: Database session
+        token: JWT token
+        required_role: The role required for authorization
+        uuid: Optional UUID to verify token belongs to specific user
+        
+    Returns:
+        bool: True if authorized, False otherwise
+    """
+    try:
+        token_uuid, token_role = verify_authorization(token, db)
+
+        # Check if UUID matches (if provided)
+        if uuid and token_uuid != uuid:
+            return False
+            
+        # Check if role matches requirement
+        if token_role != required_role:
+            return False
+            
+        return True
+    except Exception:
+        return False

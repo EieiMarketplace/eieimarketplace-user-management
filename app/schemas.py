@@ -68,6 +68,15 @@ class LoginResponse(BaseModel):
     id: str
     role: str
 
+class VerifyRequest(BaseModel):
+    uuid: str
+    required_role: str
+
+class VerifyResponse(BaseModel):
+    uuid: str
+    verify: bool
+
+
 # class LoginResponse(BaseModel):
 #     status: int
 #     data: LoginData
