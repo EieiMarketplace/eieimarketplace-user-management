@@ -20,6 +20,10 @@ http://127.0.0.1:7001/docs
 ```
 python -m pytest -v
 ```
+example for running specific test case
+```
+python -m pytest -v tests/test_users.py::test_register_user
+```
 
 ## Repo Structure 
 ```
