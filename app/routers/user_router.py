@@ -61,8 +61,8 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
 #         ) for user in users
 #     ]
 
-# #TODO change user_id to uuid
-@router.get("/{user_id}", response_model=schemas.UserResponse)
+# Get user info by user_id (uuid)
+@router.get("/info/{user_id}", response_model=schemas.UserResponse)
 def get_user_by_uuid(user_id: str, credentials: HTTPAuthorizationCredentials = Depends(auth.security), db: Session = Depends(get_db)):
     """Get current user info based on the provided JWT token."""
     token = credentials.credentials
