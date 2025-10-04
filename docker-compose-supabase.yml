@@ -3,19 +3,12 @@ version: "3.9"
 services:
   eieimarketplace-user-management:
     build:
-      context: . # 👈 ให้ Docker เห็นทั้งโปรเจกต์
+      context: .
       dockerfile: supabase_dockerfile/Dockerfile
     image: supabase_user_eieimarketplace
     container_name: eieimarketplace-user-management
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: eieimarket
-      POSTGRES_HOST: postgres
       SUPABASE_DB_URL: ${SUPABASE_DB_URL}
     ports:
       - "7001:7001"
-
-volumes:
-  db_data:

@@ -1,39 +1,24 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base
 import os
 
-load_dotenv()
+DB_USER = os.getenv("POSTGRES_USER", "postgres")
+DB_PASS = os.getenv("POSTGRES_PASSWORD", "postgres")
+DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
+DB_NAME = os.getenv("POSTGRES_DB", "eieimarket")
 
-DATABASE_URL = os.getenv("SUPABASE_DB_URL")
+if DB_HOST == "sqlite":
+    DATABASE_URL = f"sqlite:///{DB_NAME}"
+else:
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 
-if not DATABASE_URL:
-    raise ValueError("❌ SUPABASE_DB_URL not found in .env file")
-
-# สำหรับ Supabase - ต้องมี SSL และ timeout
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,          # ตรวจสอบ connection ก่อนใช้
-    pool_size=5,                 # จำนวน connection ใน pool
-    max_overflow=10,             # connection เพิ่มเติมสูงสุด
-    pool_recycle=300,            # รีไซเคิลทุก 5 นาที
-    echo=False,                  # Set True เพื่อดู SQL queries
-    connect_args={
-        "connect_timeout": 10,   # Timeout 10 วินาที
-        "sslmode": "require",    # บังคับใช้ SSL (สำคัญ!)
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 10,
-        "keepalives_count": 5,
-    }
-)
-
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-
 def get_db():
-    """Dependency for getting database session"""
     db = SessionLocal()
     try:
         yield db
