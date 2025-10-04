@@ -63,7 +63,18 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 # #TODO change user_id to uuid
 @router.get("/{user_id}", response_model=schemas.UserResponse)
-def get_user_by_uuid(user_id: str, db: Session = Depends(get_db)):
+def get_user_by_uuid(user_id: str, credentials: HTTPAuthorizationCredentials = Depends(auth.security), db: Session = Depends(get_db)):
+    """Get current user info based on the provided JWT token."""
+    token = credentials.credentials
+
+    # Check if token is blacklisted
+    if crud.is_token_blacklisted(db, token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     user = crud.get_user_by_uuid(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
