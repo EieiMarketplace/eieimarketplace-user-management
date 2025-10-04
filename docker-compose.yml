@@ -25,6 +25,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: eieimarket
       POSTGRES_HOST: postgres
+      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "7001:7001"
 

@@ -1,6 +1,7 @@
 # Eiei Marketplace User Management
 
 ## Features
+
 - Register user (email, username, password, phone, role)
 - Login (JWT) with enhanced response format
 - Logout
@@ -10,11 +11,13 @@
 ## Quick Start
 
 ### Run with Docker
+
 ```bash
 docker-compose up --build
 ```
 
 ### Run locally
+
 ```bash
 # Install dependencies
 make install-dev
@@ -24,10 +27,13 @@ make run
 ```
 
 ### Use the docs (like swagger)
+
 ```
 http://127.0.0.1:8000/docs
 ```
+
 example for running specific test case
+
 ```
 python -m pytest -v tests/test_users.py::test_register_user
 ```
@@ -35,6 +41,7 @@ python -m pytest -v tests/test_users.py::test_register_user
 ## Development
 
 ### Testing
+
 ```bash
 # Run tests
 make test
@@ -47,6 +54,7 @@ make test-docker
 ```
 
 ### Code Quality
+
 ```bash
 # Run linting
 make lint
@@ -62,6 +70,7 @@ make ci
 ```
 
 ### Available Make Commands
+
 ```bash
 make help  # Show all available commands
 ```
@@ -76,17 +85,21 @@ This project uses GitHub Actions for continuous integration. The pipeline includ
 - **Coverage**: Code coverage reporting with pytest-cov
 
 The pipeline triggers on:
+
 - Push to `main` or `develop` branches
 - Pull requests to `main` or `develop` branches
 
 ### Pipeline Jobs
+
 1. **Test**: Runs tests across multiple Python versions
 2. **Lint**: Code quality checks (flake8, black, isort)
 3. **Security**: Security vulnerability scanning (safety, bandit)
 
-## Repo Structure 
+## Repo Structure
+
 ```
 eieimarketplace-user-management/
+|──supabase-dockerfile
 │── app/
 │   ├── main.py              # entrypoint ของ FastAPI
 │   ├── models.py            # ORM Models (SQLAlchemy)
@@ -104,4 +117,18 @@ eieimarketplace-user-management/
 │── docker-compose.yml       # รวม FastAPI + PostgreSQL
 │── requirements.txt         # dependencies
 │── README.md                # วิธีรันและอธิบายไฟล์
+```
+
+### Run with Supabase Database
+
+1.
+
+```
+docker compose -f docker-compose-supabase.yml up --build
+```
+
+2.
+
+```
+Back to use postgresLocal :D
 ```

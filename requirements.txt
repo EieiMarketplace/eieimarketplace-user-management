@@ -10,3 +10,5 @@ PyJWT
 pytest
 httpx
 bcrypt==4.0.1
+supabase
+dotenv
