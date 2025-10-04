@@ -62,19 +62,19 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
 #     ]
 
 # #TODO change user_id to uuid
-# @router.get("/users/{user_id}", response_model=schemas.UserResponse)
-# def get_user_by_uuid(user_id: str, db: Session = Depends(get_db)):
-#     user = crud.get_user_by_uuid(db, user_id)
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return schemas.UserResponse(
-#         id=user.uuid,
-#         email=user.email,
-#         first_name=user.first_name,
-#         last_name=user.last_name,
-#         phone_number=user.phone_number,
-#         role=user.role.name
-#     )
+@router.get("/{user_id}", response_model=schemas.UserResponse)
+def get_user_by_uuid(user_id: str, db: Session = Depends(get_db)):
+    user = crud.get_user_by_uuid(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return schemas.UserResponse(
+        id=user.uuid,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        phone_number=user.phone_number,
+        role=user.role.name
+    )
 
 # Get current user info
 @router.get("/info", response_model=schemas.UserResponse)
