@@ -1,12 +1,103 @@
-from fastapi import FastAPI
+import asyncio
+import json
+import os
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import sys
+import aio_pika
 
+from .services.service import UserService
 from .database2 import Base, engine
 from .models import Role
 from .routers import user_router
+import logging
+from . import database2
+
+logger = logging.getLogger(__name__)
+
+_connection = None
+
+from dotenv import load_dotenv
+load_dotenv()
+
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "")
+print("RABBIT MQ")
+
+# ---------- RabbitMQ Listener ----------
+# RABBITMQ_URL = "amqp://guest:guest@localhost:5672/"
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "")
+print("RABBIT MQ")
+EXCHANGE_NAME = "user_info"
+QUEUE_NAME = "user_info_queue"
+ROUTING_KEY = "user_info.status"
+
+def get_db():
+    db = database2.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        
+async def listen_rabbitmq():
+    while True:
+        try:
+            connection = await aio_pika.connect_robust(RABBITMQ_URL)
+            channel = await connection.channel()
+            exchange = await channel.declare_exchange(EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC, durable=True)
+            queue = await channel.declare_queue("user_info_queue", durable=True)
+            await queue.bind(exchange, "user_info.status")
+
+            async with queue.iterator() as queue_iter:
+                async for message in queue_iter:
+                    async with message.process():
+                        try:
+                            data = json.loads(message.body)
+                            print("THE DATA", data)
+                            user_id = data.get("userId")
+
+                            db = next(get_db())
+                            user = await UserService.get_userInfo(user_id, db)
+                            print("✅ User found:", user)
+
+                            response_payload = {
+                                "first_name": user.first_name,
+                                "last_name": user.last_name,
+                                "email": user.email,
+                                "role": user.role,
+                            }
+
+                        except HTTPException as he:
+                            # ถ้าไม่เจอ user ก็ส่ง response กลับไปแจ้งฝั่ง requester ด้วย
+                            print(f"⚠️ User not found: {he.detail}")
+                            response_payload = {
+                                "error": "User not found",
+                                "user_id": user_id,
+                            }
+
+                        except Exception as e:
+                            print(f"❌ Unexpected error: {e}")
+                            response_payload = {
+                                "error": str(e),
+                                "user_id": user_id,
+                            }
+
+                        # ✅ ไม่ว่าจะ error หรือไม่ ต้อง publish response กลับ (จะได้ไม่ requeue)
+                        await exchange.publish(
+                            aio_pika.Message(
+                                body=json.dumps(response_payload).encode(),
+                                correlation_id=message.correlation_id
+                            ),
+                            routing_key="user_info.response"
+                        )
+                        print(f"📤 Sent response for user {user_id}")
+
+        except Exception as e:
+            print(f"❌ Error in user service listener: {e}")
+            await asyncio.sleep(5)
+# ---------- RabbitMQ Listener End ----------
+
 
 # สร้าง FastAPI app
 app = FastAPI(title="Eiei Marketplace User Management")
@@ -92,6 +183,10 @@ async def startup_event():
     if not success:
         print("\n⚠️  WARNING: Database initialization failed!")
         print("   API will start but database operations may fail.\n")
+
+    # ✅ Start RabbitMQ listener in background
+    asyncio.create_task(listen_rabbitmq())
+    print("🚀 RabbitMQ listener started in background.")
 
 
 # =============== Health Check Endpoints ===============

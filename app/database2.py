@@ -14,9 +14,9 @@ if not DATABASE_URL:
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,          # ตรวจสอบ connection ก่อนใช้
-    pool_size=5,                 # จำนวน connection ใน pool
+    pool_size=30,                 # จำนวน connection ใน pool
     max_overflow=10,             # connection เพิ่มเติมสูงสุด
-    pool_recycle=300,            # รีไซเคิลทุก 5 นาที
+    pool_recycle=1800 ,            # รีไซเคิลทุก 5 นาที
     echo=False,                  # Set True เพื่อดู SQL queries
     connect_args={
         "connect_timeout": 10,   # Timeout 10 วินาที
