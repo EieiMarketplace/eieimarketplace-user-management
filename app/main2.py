@@ -8,6 +8,8 @@ from sqlalchemy import text
 import sys
 import aio_pika
 
+from .crud import get_users_by_uuids
+
 from .services.service import UserService
 from .database2 import Base, engine
 from .models import Role
@@ -22,23 +24,17 @@ _connection = None
 from dotenv import load_dotenv
 load_dotenv()
 
-RABBITMQ_URL = os.getenv("RABBITMQ_URL", "")
-print("RABBIT MQ")
+ 
 
 # ---------- RabbitMQ Listener ----------
 # RABBITMQ_URL = "amqp://guest:guest@localhost:5672/"
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "")
-print("RABBIT MQ")
+print("RABBIT MQ",RABBITMQ_URL)
 EXCHANGE_NAME = "user_info"
 QUEUE_NAME = "user_info_queue"
 ROUTING_KEY = "user_info.status"
 
-def get_db():
-    db = database2.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+ 
         
 async def listen_rabbitmq():
     while True:
@@ -52,46 +48,69 @@ async def listen_rabbitmq():
             async with queue.iterator() as queue_iter:
                 async for message in queue_iter:
                     async with message.process():
+                        # สร้าง db session ที่จัดการได้ถูกต้อง
+                        db = database2.SessionLocal()
                         try:
                             data = json.loads(message.body)
-                            print("THE DATA", data)
-                            user_id = data.get("userId")
-
-                            db = next(get_db())
-                            user = await UserService.get_userInfo(user_id, db)
-                            print("✅ User found:", user)
-
-                            response_payload = {
-                                "first_name": user.first_name,
-                                "last_name": user.last_name,
-                                "email": user.email,
-                                "role": user.role,
-                            }
-
-                        except HTTPException as he:
-                            # ถ้าไม่เจอ user ก็ส่ง response กลับไปแจ้งฝั่ง requester ด้วย
-                            print(f"⚠️ User not found: {he.detail}")
-                            response_payload = {
-                                "error": "User not found",
-                                "user_id": user_id,
-                            }
+                            event_type = data.get("event")
+                            print("DATAA", data)
+                            
+                            # Handle batch request
+                            if event_type == "batch_user_info_request":
+                                user_ids = data.get("userIds", [])
+                                print(f"📥 Batch request for {len(user_ids)} users")
+                                
+                                users = get_users_by_uuids(db, user_ids)
+                                response_payload = {
+                                    "users": users,
+                                    "count": len(users)
+                                }
+                            
+                            # Handle single request
+                            elif event_type == "user_info_request":
+                                user_id = data.get("userId")
+                                print(f"📥 Single request for user {user_id}")
+                                
+                                try:
+                                    user = await UserService.get_userInfo(user_id, db)
+                                    response_payload = {
+                                        "first_name": user.first_name,
+                                        "last_name": user.last_name,
+                                        "email": user.email,
+                                        "role": "vendor",
+                                    }
+                                except HTTPException as he:
+                                    response_payload = {
+                                        "error": "User not found",
+                                        "user_id": user_id,
+                                    }
+                            else:
+                                print(f"⚠️ Unknown event type: {event_type}")
+                                response_payload = {
+                                    "error": "Unknown event type"
+                                }
 
                         except Exception as e:
                             print(f"❌ Unexpected error: {e}")
                             response_payload = {
-                                "error": str(e),
-                                "user_id": user_id,
+                                "error": str(e)
                             }
+                        finally:
+                            # ปิด session ทุกครั้ง
+                            db.close()
 
-                        # ✅ ไม่ว่าจะ error หรือไม่ ต้อง publish response กลับ (จะได้ไม่ requeue)
-                        await exchange.publish(
-                            aio_pika.Message(
-                                body=json.dumps(response_payload).encode(),
-                                correlation_id=message.correlation_id
-                            ),
-                            routing_key="user_info.response"
-                        )
-                        print(f"📤 Sent response for user {user_id}")
+                        # Publish response
+                        try:
+                            await exchange.publish(
+                                aio_pika.Message(
+                                    body=json.dumps(response_payload).encode(),
+                                    correlation_id=message.correlation_id
+                                ),
+                                routing_key="user_info.response"
+                            )
+                            print(f"📤 Sent response")
+                        except Exception as e:
+                            print(f"❌ Failed to publish response: {e}")
 
         except Exception as e:
             print(f"❌ Error in user service listener: {e}")
