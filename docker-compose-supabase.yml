@@ -10,5 +10,6 @@ services:
     restart: always
     environment:
       SUPABASE_DB_URL: ${SUPABASE_DB_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
     ports:
       - "7001:7001"
