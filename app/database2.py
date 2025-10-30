@@ -19,7 +19,7 @@ engine = create_engine(
     pool_recycle=3600,         # recycle connection ทุก 1 ชั่วโมง
     echo=False,                  # Set True เพื่อดู SQL queries
     connect_args={
-        "connect_timeout": 10,   # Timeout 10 วินาที
+        "connect_timeout": 30,   # Timeout 10 วินาที
         "sslmode": "require",    # บังคับใช้ SSL (สำคัญ!)
         "keepalives": 1,
         "keepalives_idle": 30,

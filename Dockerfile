@@ -1,11 +1,14 @@
+# supabase_dockerfile/Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
 
+
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./app ./app
-COPY ./tests ./tests
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7001"]
+COPY app ./app
+
+CMD ["uvicorn", "app.main2:app", "--host", "0.0.0.0", "--port", "7001"]

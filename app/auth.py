@@ -4,7 +4,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from . import database, crud
+from . import database2, crud  # ← FIXED: Changed from 'database' to 'database2'
 import uuid
 
 SECRET_KEY = "supersecret"
@@ -15,7 +15,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 def get_db():
-    db = database.SessionLocal()
+    db = database2.SessionLocal()  # ← FIXED: Changed from 'database' to 'database2'
     try:
         yield db
     finally:

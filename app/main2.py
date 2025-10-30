@@ -37,84 +37,145 @@ ROUTING_KEY = "user_info.status"
  
         
 async def listen_rabbitmq():
+    connection = None
+    channel = None
+    
     while True:
         try:
-            connection = await aio_pika.connect_robust(RABBITMQ_URL)
-            channel = await connection.channel()
-            exchange = await channel.declare_exchange(EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC, durable=True)
-            queue = await channel.declare_queue("user_info_queue", durable=True)
-            await queue.bind(exchange, "user_info.status")
-
-            async with queue.iterator() as queue_iter:
-                async for message in queue_iter:
-                    async with message.process():
-                        # สร้าง db session ที่จัดการได้ถูกต้อง
-                        db = database2.SessionLocal()
+            print("🔌 Connecting to RabbitMQ...")
+            connection = await aio_pika.connect_robust(
+                RABBITMQ_URL,
+                reconnect_interval=5,
+                fail_fast=False
+            )
+            
+            async with connection:
+                channel = await connection.channel()
+                await channel.set_qos(prefetch_count=10)
+                
+                exchange = await channel.declare_exchange(
+                    EXCHANGE_NAME, 
+                    aio_pika.ExchangeType.TOPIC, 
+                    durable=True
+                )
+                
+                queue = await channel.declare_queue(
+                    QUEUE_NAME, 
+                    durable=True
+                )
+                
+                await queue.bind(exchange, ROUTING_KEY)
+                print("✅ Connected to RabbitMQ, waiting for messages...")
+                
+                async with queue.iterator() as queue_iter:
+                    async for message in queue_iter:
+                        db = None
                         try:
-                            data = json.loads(message.body)
-                            event_type = data.get("event")
-                            print("DATAA", data)
-                            
-                            # Handle batch request
-                            if event_type == "batch_user_info_request":
-                                user_ids = data.get("userIds", [])
-                                print(f"📥 Batch request for {len(user_ids)} users")
-                                
-                                users = get_users_by_uuids(db, user_ids)
-                                response_payload = {
-                                    "users": users,
-                                    "count": len(users)
-                                }
-                            
-                            # Handle single request
-                            elif event_type == "user_info_request":
-                                user_id = data.get("userId")
-                                print(f"📥 Single request for user {user_id}")
+                            async with message.process():
+                                # Create db session
+                                db = database2.SessionLocal()
                                 
                                 try:
-                                    user = await UserService.get_userInfo(user_id, db)
+                                    data = json.loads(message.body)
+                                    event_type = data.get("event")
+                                    print(f"📥 Received event: {event_type}")
+                                    
+                                    response_payload = None
+                                    
+                                    # Handle batch request
+                                    if event_type == "batch_user_info_request":
+                                        user_ids = data.get("userIds", [])
+                                        print(f"📥 Batch request for {len(user_ids)} users")
+                                        users = get_users_by_uuids(db, user_ids)
+                                        response_payload = {
+                                            "users": users,
+                                            "count": len(users)
+                                        }
+                                    
+                                    # Handle single request
+                                    elif event_type == "user_info_request":
+                                        user_id = data.get("userId")
+                                        print(f"📥 Single request for user {user_id}")
+                                        try:
+                                            user = await UserService.get_userInfo(user_id, db)
+                                            response_payload = {
+                                                "first_name": user.first_name,
+                                                "last_name": user.last_name,
+                                                "email": user.email,
+                                                "role": "vendor",
+                                            }
+                                        except HTTPException:
+                                            response_payload = {
+                                                "error": "User not found",
+                                                "user_id": user_id,
+                                            }
+                                    
+                                    else:
+                                        print(f"⚠️ Unknown event type: {event_type}")
+                                        response_payload = {
+                                            "error": "Unknown event type"
+                                        }
+                                
+                                except json.JSONDecodeError as je:
+                                    print(f"❌ JSON decode error: {je}")
                                     response_payload = {
-                                        "first_name": user.first_name,
-                                        "last_name": user.last_name,
-                                        "email": user.email,
-                                        "role": "vendor",
+                                        "error": "Invalid JSON"
                                     }
-                                except HTTPException as he:
+                                except Exception as e:
+                                    print(f"❌ Processing error: {e}")
+                                    logger.exception("Error processing message")
                                     response_payload = {
-                                        "error": "User not found",
-                                        "user_id": user_id,
+                                        "error": str(e)
                                     }
-                            else:
-                                print(f"⚠️ Unknown event type: {event_type}")
-                                response_payload = {
-                                    "error": "Unknown event type"
-                                }
-
-                        except Exception as e:
-                            print(f"❌ Unexpected error: {e}")
-                            response_payload = {
-                                "error": str(e)
-                            }
-                        finally:
-                            # ปิด session ทุกครั้ง
-                            db.close()
-
-                        # Publish response
-                        try:
-                            await exchange.publish(
-                                aio_pika.Message(
-                                    body=json.dumps(response_payload).encode(),
-                                    correlation_id=message.correlation_id
-                                ),
-                                routing_key="user_info.response"
-                            )
-                            print(f"📤 Sent response")
-                        except Exception as e:
-                            print(f"❌ Failed to publish response: {e}")
-
-        except Exception as e:
-            print(f"❌ Error in user service listener: {e}")
+                                finally:
+                                    if db:
+                                        db.close()
+                                
+                                # Publish response
+                                if response_payload:
+                                    try:
+                                        await exchange.publish(
+                                            aio_pika.Message(
+                                                body=json.dumps(response_payload).encode(),
+                                                correlation_id=message.correlation_id,
+                                                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+                                            ),
+                                            routing_key="user_info.response"
+                                        )
+                                        print(f"📤 Sent response")
+                                    except Exception as e:
+                                        print(f"❌ Failed to publish response: {e}")
+                                        logger.exception("Failed to publish response")
+                        
+                        except Exception as msg_error:
+                            print(f"❌ Message processing error: {msg_error}")
+                            logger.exception("Message processing failed")
+                            if db:
+                                db.close()
+                        
+        except aio_pika.exceptions.AMQPConnectionError as e:
+            print(f"❌ RabbitMQ connection error: {e}")
+            print("🔄 Reconnecting in 5 seconds...")
             await asyncio.sleep(5)
+        
+        except asyncio.CancelledError:
+            print("🛑 RabbitMQ listener cancelled")
+            if connection and not connection.is_closed:
+                await connection.close()
+            break
+        
+        except Exception as e:
+            print(f"❌ Unexpected error in listener: {e}")
+            logger.exception("Unexpected error in RabbitMQ listener")
+            await asyncio.sleep(5)
+        
+        finally:
+            # Ensure connection cleanup
+            if connection and not connection.is_closed:
+                try:
+                    await connection.close()
+                except Exception:
+                    pass
 # ---------- RabbitMQ Listener End ----------
 
 
@@ -127,7 +188,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5000",
-        "http://localhost:8000"
+        "http://localhost:8000",
+        os.getenv("FRONTEND_URL")
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -135,7 +197,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(user_router.router, prefix="/users", tags=["Users"])
+app.include_router(user_router.router, prefix="/api/users", tags=["Users"])
 
 
 # =============== Database Initialization ===============
