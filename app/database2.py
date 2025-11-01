@@ -14,8 +14,8 @@ if not DATABASE_URL:
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,          # ตรวจสอบ connection ก่อนใช้
-    pool_size=30,                 # จำนวน connection ใน pool
-    max_overflow=20,             # connection เพิ่มเติมสูงสุด
+    pool_size=1000,                 # จำนวน connection ใน pool
+    max_overflow=500,             # connection เพิ่มเติมสูงสุด
     pool_recycle=3600,         # recycle connection ทุก 1 ชั่วโมง
     echo=False,                  # Set True เพื่อดู SQL queries
     connect_args={
