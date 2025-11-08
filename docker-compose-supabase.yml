@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  eieimarketplace-user-management:
+    build:
+      context: .
+      dockerfile: supabase_dockerfile/Dockerfile
+    image: supabase_user_eieimarketplace
+    container_name: eieimarketplace-user-management
+    restart: always
+    environment:
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+    ports:
+      - "7001:7001"

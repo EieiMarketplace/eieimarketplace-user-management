@@ -1,10 +1,13 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from .database import Base, engine
 from .models import Role
 from .routers import user_router
 from fastapi.middleware.cors import CORSMiddleware
 Base.metadata.create_all(bind=engine)
+import os
 
+load_dotenv()
 app = FastAPI(title="Eiei Marketplace User Management")
 list = ["http://localhost:5000",
         "http://localhost:8000",
@@ -12,7 +15,7 @@ list = ["http://localhost:5000",
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5000", "http://localhost:8000"],       
+    allow_origins=["http://localhost:3000", "http://localhost:5000", "http://localhost:8000",os.getenv("FRONTEND_URL")],       
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],          
     allow_headers=["*"],          

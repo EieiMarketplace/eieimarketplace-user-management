@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy.orm import Session, joinedload
 from . import models, auth
 
@@ -16,6 +17,34 @@ def get_role_by_uuid(db: Session, user_uuid: str):
 
 def get_user_by_uuid(db: Session, user_uuid: str):
     return db.query(models.User).filter(models.User.uuid == user_uuid).first()
+
+def get_users_by_uuids(db: Session, user_uuids: List[str]) -> List[dict]:
+    """Get multiple users by their UUIDs"""
+    users = db.query(models.User).filter(models.User.uuid.in_(user_uuids)).all()
+    
+    result = []
+    for user in users:
+        result.append({
+            "vendorId": user.uuid,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "role": "vendor",
+        })
+    
+    # Add "Unknown" for missing users
+    found_ids = {user.uuid for user in users}
+    for user_id in user_uuids:
+        if user_id not in found_ids:
+            result.append({
+                "vendorId": user_id,
+                "first_name": "Unknown",
+                "last_name": "",
+                "email": "",
+                "role": "",
+            })
+    
+    return result
 
 def get_all_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
